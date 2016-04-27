@@ -99,6 +99,15 @@ typedef struct {
 #define NAP_TRK_CONTROL_PRN_Pos (3u)
 #define NAP_TRK_CONTROL_PRN_Msk (0x1FU << NAP_TRK_CONTROL_PRN_Pos)
 
+#define NAP_TRK_CONTROL_CODE_Pos (9U)
+#define NAP_TRK_CONTROL_CODE_Msk (0x3U << NAP_TRK_CONTROL_CODE_Pos)
+
+#define NAP_TRK_CONTROL_RF_FE_Pos (1U)
+#define NAP_TRK_CONTROL_RF_FE_Msk (0x3U << NAP_TRK_CONTROL_RF_FE_Pos)
+
+#define NAP_TRK_CONTROL_RF_FE_CH_Pos (0U)
+#define NAP_TRK_CONTROL_RF_FE_CH_Msk (0x1U << NAP_TRK_CONTROL_RF_FE_CH_Pos)
+
 #define NAP_TRK_STATUS_RUNNING (1 << 31)
 
 /* Instances */

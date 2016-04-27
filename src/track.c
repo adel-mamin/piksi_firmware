@@ -129,7 +129,8 @@ static void interface_function(tracker_channel_t *tracker_channel,
                                tracker_interface_function_t func);
 static void event(tracker_channel_t *d, event_t event);
 static void common_data_init(tracker_common_data_t *common_data,
-                             u32 sample_count, float carrier_freq, float cn0);
+                             u32 sample_count, float carrier_freq,
+                             float cn0, code_t code);
 static void tracker_channel_lock(tracker_channel_t *tracker_channel);
 static void tracker_channel_unlock(tracker_channel_t *tracker_channel);
 static void error_flags_clear(tracker_channel_t *tracker_channel);
@@ -293,13 +294,16 @@ bool tracker_channel_init(tracker_channel_id_t id, gnss_signal_t sid,
 
   const tracker_interface_t *tracker_interface;
   tracker_t *tracker;
+  log_warn("---- ADEL debug %s:%d", __FILE__, __LINE__);
   if(!tracker_channel_runnable(tracker_channel, sid, &tracker,
                                &tracker_interface)) {
     return false;
   }
+  log_warn("---- ADEL debug %s:%d", __FILE__, __LINE__);
 
   tracker_channel_lock(tracker_channel);
   {
+  log_warn("---- ADEL debug %s:%d", __FILE__, __LINE__);
     /* Set up channel */
     tracker_channel->info.sid = sid;
     tracker_channel->info.context = tracker_channel;
@@ -316,21 +320,30 @@ bool tracker_channel_init(tracker_channel_id_t id, gnss_signal_t sid,
     /* TODO : change hardcoded sample rate */
 
     common_data_init(&tracker_channel->common_data, ref_sample_count,
-                     carrier_freq, cn0_init);
+                     carrier_freq, cn0_init, sid.code);
+
+                     log_warn("---- ADEL debug %s:%d", __FILE__, __LINE__);
+
     internal_data_init(&tracker_channel->internal_data, sid);
+    log_warn("---- ADEL debug %s:%d", __FILE__, __LINE__);
     interface_function(tracker_channel, tracker_interface->init);
+    log_warn("---- ADEL debug %s:%d", __FILE__, __LINE__);
 
     /* Clear error flags before starting NAP tracking channel */
     error_flags_clear(tracker_channel);
+    log_warn("---- ADEL debug %s:%d", __FILE__, __LINE__);
 
     /* Change the channel state to ENABLED. */
     event(tracker_channel, EVENT_ENABLE);
+    log_warn("---- ADEL debug %s:%d", __FILE__, __LINE__);
   }
   tracker_channel_unlock(tracker_channel);
+  log_warn("---- ADEL debug %s:%d", __FILE__, __LINE__);
 
   u32 snapshot = nap_track_init(tracker_channel->info.nap_channel,
                                 sid, ref_sample_count,
                                 carrier_freq, code_phase);
+                                log_warn("---- ADEL debug %s:%d", __FILE__, __LINE__);
   tracker_channel->common_data.sample_count = snapshot;
 
   return true;
@@ -963,9 +976,11 @@ static void event(tracker_channel_t *tracker_channel, event_t event)
  * \param sample_count      Sample count.
  * \param carrier_freq      Carrier frequency.
  * \param cn0               C/N0 estimate.
+ * \param code              Code identifier.
  */
 static void common_data_init(tracker_common_data_t *common_data,
-                             u32 sample_count, float carrier_freq, float cn0)
+                             u32 sample_count, float carrier_freq,
+                             float cn0, code_t code)
 {
   /* Initialize all fields to 0 */
   memset(common_data, 0, sizeof(tracker_common_data_t));
@@ -973,8 +988,8 @@ static void common_data_init(tracker_common_data_t *common_data,
   common_data->TOW_ms = TOW_INVALID;
 
   /* Calculate code phase rate with carrier aiding. */
-  common_data->code_phase_rate = (1 + carrier_freq/GPS_L1_HZ) *
-                                    GPS_CA_CHIPPING_RATE;
+  common_data->code_phase_rate = (1 + carrier_freq / code_to_carr_freq(code)) *
+                                 GPS_CA_CHIPPING_RATE;
   common_data->carrier_freq = carrier_freq;
 
   common_data->sample_count = sample_count;

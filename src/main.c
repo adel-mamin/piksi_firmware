@@ -27,6 +27,7 @@
 #include "manage.h"
 #include "track.h"
 #include "track_gps_l1ca.h"
+#include "track_gps_l2cm.h"
 #include "timing.h"
 #include "ext_events.h"
 #include "solution.h"
@@ -43,6 +44,8 @@
 #include "signal.h"
 
 extern void ext_setup(void);
+
+void track_gps_l2cm_register(void) TRK_WEAK;
 
 /** Compare version strings.
  * Compares a version of the form 'vX.Y-Z-'. If the first character of the
@@ -174,6 +177,7 @@ int main(void)
   position_setup();
   track_setup();
   track_gps_l1ca_register();
+  track_gps_l2cm_register();
   decode_setup();
   decode_gps_l1_register();
 

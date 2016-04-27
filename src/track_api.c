@@ -82,7 +82,8 @@ void tracker_retune(tracker_context_t *context, s32 carrier_freq_fp,
   tracker_internal_context_resolve(context, &channel_info, &internal_data);
 
   /* Write NAP UPDATE register. */
-  nap_track_update_wr_blocking(channel_info->nap_channel, carrier_freq_fp,
+  nap_track_update_wr_blocking(channel_info->sid.code,
+                               channel_info->nap_channel, carrier_freq_fp,
                                code_phase_rate_fp, rollover_count, 0);
 }
 

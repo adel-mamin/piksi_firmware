@@ -9,9 +9,12 @@
  * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
+ #define DEBUG 1
 
 #include "track_gps_l1ca.h"
 #include "track_api.h"
+#include "track.h"
+#include "decode.h"
 
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>

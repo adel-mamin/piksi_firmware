@@ -56,7 +56,7 @@
  *   are allocated independently when initializing decoding.
  */
 
-#define NUM_DECODER_CHANNELS  12
+#define NUM_DECODER_CHANNELS  32
 
 typedef enum {
   DECODER_CHANNEL_STATE_DISABLED,

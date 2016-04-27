@@ -172,12 +172,16 @@ bool sid_supported(gnss_signal_t sid)
 bool code_supported(enum code code)
 {
   /* Verify general validity */
-  if (!code_valid(code))
+  if (!code_valid(code)) {
+      log_warn("---- ADEL debug %s:%d. code: %d", __FILE__, __LINE__, (int)code);
     return false;
+  }
 
   /* Verify that the code is supported on this platform */
-  if (code_signal_counts[code] == 0)
+  if (code_signal_counts[code] == 0) {
+    log_warn("---- ADEL debug %s:%d. code: %d", __FILE__, __LINE__, (int)code);
     return false;
+  }
 
   return true;
 }

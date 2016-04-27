@@ -193,6 +193,13 @@ void manage_acq_setup()
     track_mask[i] = false;
     almanac[i].valid = 0;
 
+    if (CODE_GPS_L2CM == acq_status[i].sid.code) {
+      /* Do not acquire GPS L2C.
+       * Do GPS L1 C/A to L2C handover at the tracking stage instead. */
+      acq_status[i].state = ACQ_PRN_SKIP;
+      acq_status[i].masked = true;
+    }
+
     if (!sbas_enabled &&
         (sid_to_constellation(acq_status[i].sid) == CONSTELLATION_SBAS)) {
       acq_status[i].masked = true;
@@ -260,8 +267,9 @@ static u16 manage_warm_start(gnss_signal_t sid, const gps_time_t* t,
       /* sat_pos now holds unit vector from us to satellite */
       vector_subtract(3, sat_vel, position_solution.vel_ecef, sat_vel);
       /* sat_vel now holds velocity of sat relative to us */
-      dopp_hint = -GPS_L1_HZ * (vector_dot(3, sat_pos, sat_vel) / GPS_C
-                                + position_solution.clock_bias);
+      dopp_hint = -code_to_carr_freq(sid.code) *
+                  (vector_dot(3, sat_pos, sat_vel) / GPS_C
+                   + position_solution.clock_bias);
       /* TODO: Check sign of receiver frequency offset correction */
       if (time_quality >= TIME_FINE)
         dopp_uncertainty = DOPP_UNCERT_EPHEM;
@@ -646,6 +654,16 @@ u8 tracking_channels_ready()
   return n_ready;
 }
 
+void tracking_lock(void)
+{
+  chMtxTryLock(&tracking_startup_mutex);
+}
+
+void tracking_unlock(void)
+{
+  chMtxUnlock(&tracking_startup_mutex);
+}
+
 /** Queue a request to start up tracking and decoding for the specified sid.
  *
  * \note This function is thread-safe and non-blocking.
@@ -696,6 +714,8 @@ static void manage_tracking_startup(void)
       continue;
     }
 
+    tracking_lock();
+
     /* Start the tracking channel */
     if(!tracker_channel_init(chan, startup_params.sid,
                              startup_params.sample_count,
@@ -705,6 +725,9 @@ static void manage_tracking_startup(void)
                              TRACKING_ELEVATION_UNKNOWN)) {
       log_error("tracker channel init failed");
     }
+
+    tracking_unlock();
+
     /* TODO: Initialize elevation from ephemeris if we know it precisely */
 
     /* Start the decoder channel */
