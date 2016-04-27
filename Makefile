@@ -18,11 +18,25 @@ else
 	MAKEFLAGS += PRN=$(PRN)
 endif
 
-.PHONY: all tests firmware docs .FORCE
+ifeq ($(PIKSI_HW),)
+  PIKSI_HW=v2
+endif
+
+MAKEFLAGS += PIKSI_HW=$(PIKSI_HW)
+
+ifeq ($(PIKSI_HW),v2)
+	CMAKEFLAGS += -DCMAKE_SYSTEM_PROCESSOR=cortex-m4
+endif
+
+ifeq ($(PIKSI_HW),v3)
+	CMAKEFLAGS += -DCMAKE_SYSTEM_PROCESSOR=cortex-a9
+endif
+
+.PHONY: all tests firmware docs hitl .FORCE
 
 all: firmware # tests
 
-firmware: libopencm3/lib/libopencm3_stm32f4.a libswiftnav/build/src/libswiftnav-static.a
+firmware: libsbp/c/build/src/libsbp-static.a libswiftnav/build/src/libswiftnav-static.a
 	@printf "BUILD   src\n"; \
 	$(MAKE) -r -C src $(MAKEFLAGS)
 
@@ -34,9 +48,11 @@ tests:
 		fi; \
 	done
 
-libopencm3/lib/libopencm3_stm32f4.a:
-	@printf "BUILD   libopencm3\n"; \
-	$(MAKE) -C libopencm3 $(MAKEFLAGS) lib/stm32/f4
+libsbp/c/build/src/libsbp-static.a:
+	@printf "BUILD   libsbp\n"; \
+	mkdir -p libsbp/c/build; cd libsbp/c/build; \
+	cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchain-gcc-arm-embedded.cmake $(CMAKEFLAGS) ../
+	$(MAKE) -C libsbp/c/build $(MAKEFLAGS)
 
 libswiftnav/build/src/libswiftnav-static.a: .FORCE
 	@printf "BUILD   libswiftnav\n"; \
@@ -47,8 +63,8 @@ libswiftnav/build/src/libswiftnav-static.a: .FORCE
 clean:
 	@printf "CLEAN   src\n"; \
 	$(MAKE) -C src $(MAKEFLAGS) clean
-	@printf "CLEAN   libopencm3\n"; \
-	$(MAKE) -C libopencm3 $(MAKEFLAGS) clean
+	@printf "CLEAN   libsbp\n"; \
+	$(RM) -rf libsbp/c/build
 	@printf "CLEAN   libswiftnav\n"; \
 	$(RM) -rf libswiftnav/build
 	$(Q)for i in tests/*; do \
@@ -62,5 +78,18 @@ docs:
 	$(MAKE) -C docs/diagrams
 	doxygen docs/Doxyfile
 
-.FORCE:
+hitl: firmware
+	# Usage:
+	# `make hitl` will run the default "quick" test plan (1 capture job)
+	# Optionally specify a desired test plan:
+	# `make hitl TEST_PLAN=merge` will run the "merge" test plan (10 capture jobs)
+	#
+	# First, this script will pull or clone the hitl_tools repo.
+	if cd build/hitl_tools; then \
+		git pull; \
+	else \
+		git clone git@github.com:swift-nav/hitl_tools.git build/hitl_tools --depth 1; \
+	fi
+	bash build/hitl_tools/make_hitl.sh $(TEST_PLAN)
 
+.FORCE:
