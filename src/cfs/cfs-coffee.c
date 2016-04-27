@@ -51,7 +51,7 @@
 #define DEBUG 0
 #if DEBUG
 #include <stdio.h>
-#define PRINTF(...) printf(__VA_ARGS__)
+#define PRINTF(...) log_debug(__VA_ARGS__)
 #else
 #define PRINTF(...)
 #endif
@@ -1157,6 +1157,7 @@ cfs_write(int fd, const void *buf, unsigned size)
   int i;
   struct log_param lp;
   cfs_offset_t bytes_left;
+  int8_t need_dummy_write;
   const char dummy[1] = { 0xff };
 #endif
 
@@ -1190,6 +1191,7 @@ cfs_write(int fd, const void *buf, unsigned size)
 #else
   if(FILE_MODIFIED(file) || fdp->offset < file->end) {
 #endif
+    need_dummy_write = 0;
     for(bytes_left = size; bytes_left > 0;) {
       lp.offset = fdp->offset;
       lp.buf = buf;
@@ -1214,13 +1216,14 @@ cfs_write(int fd, const void *buf, unsigned size)
            occur while writing log records. */
         if(fdp->offset > file->end) {
           file->end = fdp->offset;
+          need_dummy_write = 1;
         }
       }
     }
 
-    if(fdp->offset > file->end) {
+    if(need_dummy_write) {
       /* Update the original file's end with a dummy write. */
-      COFFEE_WRITE(dummy, 1, absolute_offset(file->page, fdp->offset));
+      COFFEE_WRITE(dummy, 1, absolute_offset(file->page, fdp->offset - 1));
     }
   } else {
 #endif /* COFFEE_MICRO_LOGS */

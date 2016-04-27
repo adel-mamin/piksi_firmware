@@ -16,8 +16,6 @@
 
 #include <libswiftnav/common.h>
 
-#define NVIC_EXTI1_IRQ	7
-#define exti1_isr Vector5C
 
 /** \addtogroup nap
  * \{ */
@@ -27,17 +25,19 @@
 #define NAP_IRQ_ACQ_LOAD_DONE (1 << 30)
 #define NAP_IRQ_CW_DONE       (1 << 29)
 #define NAP_IRQ_CW_LOAD_DONE  (1 << 28)
+#define NAP_IRQ_TIMING_STROBE (1 << 27)
+#define NAP_IRQ_EXT_EVENT     (1 << 26)
 #define NAP_IRQ_TRACK_MASK    (~(NAP_IRQ_ACQ_DONE | \
                                  NAP_IRQ_ACQ_LOAD_DONE | \
                                  NAP_IRQ_CW_DONE | \
-                                 NAP_IRQ_CW_LOAD_DONE))
+                                 NAP_IRQ_CW_LOAD_DONE | \
+				 NAP_IRQ_TIMING_STROBE | \
+				 NAP_IRQ_EXT_EVENT ))
 
 /** \} */
 
 void nap_exti_setup(void);
 u32 last_nap_exti_count(void);
 void wait_for_nap_exti(void);
-
-u32 nap_irq_rd_blocking(void);
 
 #endif  /* SWIFTNAV_NAP_EXTI_H */

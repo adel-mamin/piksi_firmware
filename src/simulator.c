@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2014 Swift Navigation Inc.
+ * Copyright (C) 2012-2014, 2016 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <float.h>
 
 #include <libswiftnav/constants.h>
 #include <libswiftnav/coord_system.h>
@@ -27,9 +28,9 @@
 
 #include "simulator.h"
 #include "solution.h"
-#include "sbp_piksi.h"
-#include "board/leds.h"
+#include "peripherals/leds.h"
 #include "sbp.h"
+#include "sbp_utils.h"
 
 #include "simulator_data.h"
 
@@ -46,11 +47,11 @@ simulation_settings_t sim_settings = {
   },
   .speed = 4.0,
   .radius = 100.0,
-  .pos_sigma = 2.0,
-  .speed_sigma = 0.02,
-  .cn0_sigma = 0.1,
-  .pseudorange_sigma = 16,
-  .phase_sigma = 9e-4,
+  .pos_sigma = 1.5,
+  .speed_sigma = .15,
+  .cn0_sigma = 0.3,
+  .pseudorange_sigma = 4,
+  .phase_sigma = 3e-2,
   .num_sats = 9,
   .mode_mask =
     SIMULATION_MODE_PVT |
@@ -69,9 +70,9 @@ struct {
 
   u8             num_sats_selected;
 
-  tracking_state_msg_t      tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
-  navigation_measurement_t  nav_meas[NAP_MAX_N_TRACK_CHANNELS];
-  navigation_measurement_t  base_nav_meas[NAP_MAX_N_TRACK_CHANNELS];
+  tracking_channel_state_t  tracking_channel[MAX_CHANNELS];
+  navigation_measurement_t  nav_meas[MAX_CHANNELS];
+  navigation_measurement_t  base_nav_meas[MAX_CHANNELS];
   dops_t                    dops;
   gnss_solution             noisy_solution;
 
@@ -131,7 +132,8 @@ double rand_gaussian(const double variance)
   hasSpare = true;
 
   rand1 = rand() / ((double) RAND_MAX);
-  if(rand1 < 1e-100) rand1 = 1e-100;
+  if(rand1 < FLT_MIN)
+    rand1 = FLT_MIN;
   rand1 = -2 * log(rand1);
   rand2 = (rand() / ((double) RAND_MAX)) * (M_PI*2.0);
 
@@ -183,9 +185,9 @@ void simulation_step(void)
 {
 
   //First we propagate the current fake PVT solution
-  systime_t now_ticks = chTimeNow();
+  systime_t now_ticks = chVTGetSystemTime();
 
-  double elapsed = (now_ticks - sim_state.last_update_ticks)/(double)CH_FREQUENCY;
+  double elapsed = (now_ticks - sim_state.last_update_ticks)/(double)CH_CFG_ST_FREQUENCY;
   sim_state.last_update_ticks = now_ticks;
 
   /* Update the time */
@@ -229,14 +231,17 @@ void simulation_step_position_in_circle(double elapsed)
 
   /* Add gaussian noise to PVT position */
   double* pos_ecef = sim_state.noisy_solution.pos_ecef;
-  pos_ecef[0] = sim_state.pos[0] + rand_gaussian(sim_settings.pos_sigma);
-  pos_ecef[1] = sim_state.pos[1] + rand_gaussian(sim_settings.pos_sigma);
-  pos_ecef[2] = sim_state.pos[2] + rand_gaussian(sim_settings.pos_sigma);
+  double pos_variance = sim_settings.pos_sigma * sim_settings.pos_sigma;
+  pos_ecef[0] = sim_state.pos[0] + rand_gaussian(pos_variance);
+  pos_ecef[1] = sim_state.pos[1] + rand_gaussian(pos_variance);
+  pos_ecef[2] = sim_state.pos[2] + rand_gaussian(pos_variance);
 
   wgsecef2llh(sim_state.noisy_solution.pos_ecef, sim_state.noisy_solution.pos_llh);
 
   /* Calculate Velocity vector tangent to the sphere */
-  double noisy_speed = sim_settings.speed + rand_gaussian(sim_settings.speed_sigma);
+  double noisy_speed = sim_settings.speed +
+                       rand_gaussian(sim_settings.speed_sigma *
+                                     sim_settings.speed_sigma);
 
   sim_state.noisy_solution.vel_ned[0] = noisy_speed * cos(sim_state.angle);
   sim_state.noisy_solution.vel_ned[1] = noisy_speed * -1.0 * sin(sim_state.angle);
@@ -286,7 +291,7 @@ void simulation_step_tracking_and_observations(double elapsed)
 
     if (el > 0 &&
         num_sats_selected < sim_settings.num_sats &&
-        num_sats_selected < NAP_MAX_N_TRACK_CHANNELS) {
+        num_sats_selected < MAX_CHANNELS) {
 
       /* Generate a code measurement which is just the pseudorange: */
       double points_to_sat[3];
@@ -310,8 +315,12 @@ void simulation_step_tracking_and_observations(double elapsed)
 
       /* As for tracking, we just set each sat consecutively in each channel. */
       /* This will cause weird jumps when a satellite rises or sets. */
-      sim_state.tracking_channel[num_sats_selected].state = TRACKING_RUNNING;
-      sim_state.tracking_channel[num_sats_selected].prn = simulation_almanacs[i].prn  + SIM_PRN_OFFSET;
+      gnss_signal_t sid = {
+        .code = simulation_almanacs[i].sid.code,
+        .sat = simulation_almanacs[i].sid.sat + SIM_PRN_OFFSET
+      };
+      sim_state.tracking_channel[num_sats_selected].state = 1;
+      sim_state.tracking_channel[num_sats_selected].sid = sid_to_sbp(sid);
       sim_state.tracking_channel[num_sats_selected].cn0 = sim_state.nav_meas[num_sats_selected].snr;
 
       num_sats_selected++;
@@ -328,16 +337,24 @@ void simulation_step_tracking_and_observations(double elapsed)
 */
 void populate_nav_meas(navigation_measurement_t *nav_meas, double dist, double elevation, int almanac_i)
 {
-  nav_meas->prn             =  simulation_almanacs[almanac_i].prn + SIM_PRN_OFFSET;
+  nav_meas->sid = (gnss_signal_t) {
+    .code = simulation_almanacs[almanac_i].sid.code,
+    .sat = simulation_almanacs[almanac_i].sid.sat + SIM_PRN_OFFSET
+  };
 
   nav_meas->raw_pseudorange =  dist;
-  nav_meas->raw_pseudorange += rand_gaussian(sim_settings.pseudorange_sigma);
+  nav_meas->raw_pseudorange += rand_gaussian(sim_settings.pseudorange_sigma *
+                                             sim_settings.pseudorange_sigma);
 
-  nav_meas->carrier_phase =    dist / (GPS_C / GPS_L1_HZ);
+  nav_meas->carrier_phase =     dist / (GPS_C /
+            code_to_carr_freq(simulation_almanacs[almanac_i].sid.code));
   nav_meas->carrier_phase +=   simulation_fake_carrier_bias[almanac_i];
-  nav_meas->carrier_phase +=   rand_gaussian(sim_settings.phase_sigma);
+  nav_meas->carrier_phase +=   rand_gaussian(sim_settings.phase_sigma *
+                                             sim_settings.phase_sigma);
 
-  nav_meas->snr             =  lerp(elevation, 0, M_PI/2, 4, 12) + rand_gaussian(sim_settings.cn0_sigma);
+  nav_meas->snr             =  lerp(elevation, 0, M_PI/2, 35, 45) +
+                               rand_gaussian(sim_settings.cn0_sigma *
+                                             sim_settings.cn0_sigma);
 }
 
 /** Returns true if the simulation is at all enabled
@@ -354,16 +371,6 @@ inline bool simulation_enabled(void)
 inline bool simulation_enabled_for(simulation_modes_t mode_mask) {
   return (sim_enabled > 0) &&
     ((sim_settings.mode_mask & mode_mask) > 0);
-}
-
-/** Sends an MSG_SIMULATION_ENABLED message with
-*payload 1 if the simulation is enabled, payload 0 otherwise.
-*/
-void sbp_send_simulation_enabled(void)
-{
-  sbp_send_msg(MSG_SIMULATION_ENABLED,
-    sizeof(u8),
-    &sim_enabled);
 }
 
 /** Get current simulated PVT solution
@@ -410,7 +417,7 @@ u8 simulation_current_num_sats(void)
 *
 * \param channel The simulated tracking channel.
 */
-tracking_state_msg_t simulation_current_tracking_state(u8 channel)
+tracking_channel_state_t simulation_current_tracking_state(u8 channel)
 {
   if (channel >= simulation_current_num_sats()) {
     channel = simulation_current_num_sats() - 1;
@@ -434,57 +441,26 @@ navigation_measurement_t* simulation_current_base_navigation_measurements(void)
   return sim_state.base_nav_meas;
 }
 
-
-/** Enables or disables the simulator when an SBP callback triggers this function
-*
-*/
-void set_simulation_enabled_callback(u16 sender_id, u8 len, u8 msg[], void* context)
-{
-  (void)sender_id; (void)len; (void) context;
-  if (len == 1) {
-    if (sim_state.last_update_ticks == 0) {
-      sim_state.last_update_ticks = chTimeNow();
-    }
-    sim_enabled = msg[0];
-  }
-
-  if (simulation_enabled()) {
-    printf("Enabled Simulation\n");
-  } else {
-    printf("Disabled Simulation\n");
-  }
-
-}
-
 /**
 * Do any setup we need for the satellite almanacs.
 */
 void simulator_setup_almanacs(void)
 {
-
   for (u8 i = 0; i < simulation_num_almanacs; i++) {
     simulation_fake_carrier_bias[i] = (rand() % 1000) * 10;
   }
-
 }
 
 /** Must be called from main() or equivalent function before simulator runs
 */
 void simulator_setup(void)
 {
-
-  static sbp_msg_callbacks_node_t set_simulation_enabled_node;
-  sbp_register_cbk(
-    MSG_SIMULATION_ENABLED,
-    &set_simulation_enabled_callback,
-    &set_simulation_enabled_node
-  );
-
   sim_state.noisy_solution.time.wn = simulation_week_number;
   sim_state.noisy_solution.time.tow = 0;
 
   simulator_setup_almanacs();
 
+  SETTING("simulator", "enabled",           sim_enabled,                    TYPE_BOOL);
   SETTING("simulator", "base_ecef_x",       sim_settings.base_ecef[0],      TYPE_FLOAT);
   SETTING("simulator", "base_ecef_y",       sim_settings.base_ecef[1],      TYPE_FLOAT);
   SETTING("simulator", "base_ecef_z",       sim_settings.base_ecef[2],      TYPE_FLOAT);
@@ -497,7 +473,6 @@ void simulator_setup(void)
   SETTING("simulator", "phase_sigma",       sim_settings.phase_sigma,       TYPE_FLOAT);
   SETTING("simulator", "num_sats",          sim_settings.num_sats,          TYPE_INT);
   SETTING("simulator", "mode_mask",         sim_settings.mode_mask,         TYPE_INT);
-
 }
 
 /** \} */

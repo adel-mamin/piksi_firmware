@@ -15,14 +15,12 @@
 
 #include <libswiftnav/common.h>
 
-#define SAMPLE_FREQ 16368000
-
 /* See http://c-faq.com/cpp/multistmt.html for
  * and explaination of the do {} while(0)
  */
 #define DO_EVERY(n, cmd) do { \
   static u32 do_every_count = 0; \
-  if (do_every_count % (n) == 0) { \
+  if ((n) > 0 && do_every_count % (n) == 0) { \
     cmd; \
   } \
   do_every_count++; \

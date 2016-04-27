@@ -21,13 +21,15 @@
  * \{ */
 
 /** \defgroup simulator GPS Simulator
-* Functions used to simulate PVT and baseline fixes for hardware-in-the-loop testing.
-* Generates GPS output from Piksi as if the GPS was performing solutions.
+* Functions used to simulate PVT and baseline fixes for hardware-in-the-loop
+* testing. Generates GPS output from Piksi as if the GPS was performing
+* solutions.
 *
 * Expected usage:
 * First call `simulation_setup()`,
 * To update the simulation, call `simulation_step()`
-* and to get the current simulated data, call any of the `simulation_current_xxx` functions
+* and to get the current simulated data, call any of the
+* `simulation_current_xxx` functions
 *
  * \{ */
 
@@ -83,7 +85,7 @@ dops_t*                    simulation_current_dops_solution(void);
 double*                    simulation_ref_ecef(void);
 double*                    simulation_current_baseline_ecef(void);
 u8                         simulation_current_num_sats(void);
-tracking_state_msg_t       simulation_current_tracking_state(u8 channel);
+tracking_channel_state_t   simulation_current_tracking_state(u8 channel);
 navigation_measurement_t*  simulation_current_navigation_measurements(void);
 
 //Initialization:

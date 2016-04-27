@@ -13,12 +13,19 @@
 #ifndef SWIFTNAV_SBP_H
 #define SWIFTNAV_SBP_H
 
-#include <libswiftnav/common.h>
-#include <libswiftnav/sbp.h>
-#include <libswiftnav/sbp_messages.h>
+#include <libsbp/acquisition.h>
+#include <libsbp/bootload.h>
+#include <libsbp/common.h>
+#include <libsbp/observation.h>
+#include <libsbp/logging.h>
+#include <libsbp/piksi.h>
+#include <libsbp/sbp.h>
+#include <libsbp/tracking.h>
 
 #include "peripherals/usart.h"
-#include "sbp_piksi.h"
+
+void log_obs_latency(float latency_ms);
+void log_obs_latency_tick();
 
 void sbp_setup(u16 sender_id);
 void sbp_register_cbk(u16 msg_type, sbp_msg_callback_t cb, sbp_msg_callbacks_node_t *node);
@@ -27,12 +34,4 @@ u32 sbp_send_msg(u16 msg_type, u8 len, u8 buff[]);
 u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id);
 void sbp_process_messages(void);
 
-void debug_variable(char *name, double x);
-
-#define DEBUG_VAR(name, x, rate) { \
-  DO_EVERY_TICKS(TICK_FREQ/rate,   \
-      debug_variable((name), (x)); \
-  ); }
-
 #endif
-

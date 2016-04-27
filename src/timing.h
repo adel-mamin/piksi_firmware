@@ -13,11 +13,8 @@
 #ifndef SWIFTNAV_TIME_H
 #define SWIFTNAV_TIME_H
 
-#include <libopencm3/stm32/f4/rcc.h>
-#include <libopencm3/stm32/f4/timer.h>
-
 #include <libswiftnav/common.h>
-#include <libswiftnav/gpstime.h>
+#include <libswiftnav/time.h>
 
 /** \addtogroup timing Timing
  * \{ */
@@ -48,9 +45,8 @@ extern clock_est_state_t clock_state;
 void timing_setup(void);
 gps_time_t get_current_time(void);
 void set_time(time_quality_t quality, gps_time_t t);
-void set_time_fine(double tc, double, gps_time_t t);
+void set_time_fine(u64 tc, gps_time_t t);
 gps_time_t rx2gpstime(double tc);
-double gps2rxtime(gps_time_t t);
+double gps2rxtime(gps_time_t* t);
 
 #endif
-

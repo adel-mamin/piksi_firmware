@@ -15,73 +15,75 @@
 
 #include <ch.h>
 #include <libswiftnav/common.h>
+#include <libswiftnav/signal.h>
+#include "board/acq.h"
 
 /** \addtogroup manage
  * \{ */
 
-#define ACQ_THRESHOLD 15.0
-#define TRACK_THRESHOLD 2.0
-#define TRACK_SNR_INIT_COUNT 5000
+#define ACQ_THRESHOLD 37.0
+#define ACQ_RETRY_THRESHOLD 38.0
+
 #define TRACK_SNR_THRES_COUNT 2000
+
+/** How many ms to allow tracking channel to converge after
+    initialization before we consider dropping it */
+#define TRACK_INIT_T 2500
+
+/** If a channel is dropped but was running successfully for at least
+    this long, mark it for prioritized reacquisition. */
+#define TRACK_REACQ_T 5000
+
+/** If C/N0 is below track_cn0_threshold for >= TRACK_DROP_CN0_T ms,
+    drop the channel. */
+#define TRACK_DROP_CN0_T 5000
+
+/** If optimistic phase lock detector shows "unlocked" for >=
+    TRACK_DROP_UNLOCKED_T ms, drop the channel. */
+#define TRACK_DROP_UNLOCKED_T 5000
+
+/** If pessimistic phase lock detector shows "locked" for >=
+    TRACK_USE_LOCKED_T ms, use the channel. */
+#define TRACK_USE_LOCKED_T 100
+
+/** How many milliseconds to wait for the tracking loops to
+ * stabilize after any mode change before using obs. */
+#define TRACK_STABILIZATION_T 1000
 
 #define ACQ_FULL_CF_MIN  -8500
 #define ACQ_FULL_CF_MAX   8500
-#define ACQ_FULL_CF_STEP  400
-#define ACQ_FINE_CF_WIDTH 500
-#define ACQ_FINE_CP_WIDTH 20
-#define ACQ_FINE_CF_STEP  50
+#define ACQ_FULL_CF_STEP  acq_bin_width()
 
 #define MANAGE_NO_CHANNELS_FREE 255
 
-#define MANAGE_ACQ_THREAD_PRIORITY NORMALPRIO
-#define MANAGE_ACQ_THREAD_STACK    3000
+#define MANAGE_ACQ_THREAD_PRIORITY (NORMALPRIO-3)
+#define MANAGE_ACQ_THREAD_STACK    1400
 
 #define MANAGE_TRACK_THREAD_PRIORITY (NORMALPRIO-2)
-#define MANAGE_TRACK_THREAD_STACK    3000
+#define MANAGE_TRACK_THREAD_STACK   1400
 
-/** Acquisition management states. */
-typedef enum {
-  ACQ_MANAGE_START = 0,
-  ACQ_MANAGE_DISABLED,
-  ACQ_MANAGE_LOADING_COARSE,
-  ACQ_MANAGE_RUNNING_COARSE,
-  ACQ_MANAGE_LOADING_FINE,
-  ACQ_MANAGE_RUNNING_FINE
-} acq_manage_state_t;
-
-/** Acquisition management struct. */
 typedef struct {
-  acq_manage_state_t state; /**< Acquisition management state. */
-  u8 prn;                   /**< CA Code (0-31) being searched for. */
-  u32 coarse_timer_count;   /**< Sample count corresponding to first sample in coarse acquisition samples. */
-  float coarse_snr;         /**< SNR of highest correlation in coarse search. */
-  float coarse_cp;          /**< Code phase of highest correlation in coarse search. */
-  float coarse_cf;          /**< Carr freq of highest correlation in coarse search. */
-  float fine_snr;           /**< SNR of highest correlation in fine search. */
-  u32 fine_timer_count;     /**< Sample count corresponding to first sample in fine acquisition samples. */
-} acq_manage_t;
-
-/** Status of acquisition for a particular PRN. */
-typedef struct __attribute__((packed)) {
-  enum {
-    ACQ_PRN_SKIP = 0,
-    ACQ_PRN_UNTRIED,
-    ACQ_PRN_TRIED,
-    ACQ_PRN_ACQUIRING,
-    ACQ_PRN_TRACKING
-  } state;  /**< Management status of PRN. */
-  s8 score; /**< Acquisition preference of PRN. */
-} acq_prn_t;
+  gnss_signal_t sid;      /**< Signal identifier. */
+  u32 sample_count;       /**< Reference NAP sample count. */
+  float carrier_freq;     /**< Carrier frequency Doppler (Hz). */
+  float code_phase;       /**< Code phase (chips). */
+  float cn0_init;         /**< C/N0 estimate (dBHz). */
+  s8 elevation;           /**< Elevation (deg). */
+} tracking_startup_params_t;
 
 /** \} */
 
 void manage_acq_setup(void);
-void manage_acq(void);
+
+void manage_set_obs_hint(gnss_signal_t sid);
 
 void manage_track_setup(void);
-u8 manage_track_new_acq(float snr);
-void manage_track(void);
 s8 use_tracking_channel(u8 i);
 u8 tracking_channels_ready(void);
+
+bool tracking_startup_request(const tracking_startup_params_t *startup_params);
+
+void tracking_lock(void);
+void tracking_unlock(void);
 
 #endif
