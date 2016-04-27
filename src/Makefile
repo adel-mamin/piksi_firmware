@@ -98,6 +98,7 @@ CSRC := $(STARTUPSRC) \
         $(SWIFTNAV_ROOT)/src/track_internal.o \
         $(SWIFTNAV_ROOT)/src/track_api.o \
         $(SWIFTNAV_ROOT)/src/track_gps_l1ca.o \
+        $(SWIFTNAV_ROOT)/src/track_gps_l2cm.o \
         $(SWIFTNAV_ROOT)/src/manage.o \
         $(SWIFTNAV_ROOT)/src/settings.o \
         $(SWIFTNAV_ROOT)/src/timing.o \

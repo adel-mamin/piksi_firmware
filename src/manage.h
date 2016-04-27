@@ -83,4 +83,7 @@ u8 tracking_channels_ready(void);
 
 bool tracking_startup_request(const tracking_startup_params_t *startup_params);
 
+void tracking_lock(void);
+void tracking_unlock(void);
+
 #endif

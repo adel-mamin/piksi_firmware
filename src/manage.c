@@ -645,6 +645,16 @@ u8 tracking_channels_ready()
   }
   return n_ready;
 }
+ 
+void tracking_lock(void)
+{
+  chMtxTryLock(&tracking_startup_mutex);
+}
+
+void tracking_unlock(void)
+{
+  chMtxUnlock(&tracking_startup_mutex);
+}
 
 /** Queue a request to start up tracking and decoding for the specified sid.
  *
