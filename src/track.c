@@ -356,7 +356,7 @@ bool tracker_channel_init(tracker_channel_id_t id, gnss_signal_t sid,
                  carrier_freq, code_phase, chips_to_correlate);
 
   if (post_init_cb) {
-    interface_function(tracker_channel, post_init_cb);
+    //interface_function(tracker_channel, post_init_cb);
   }
 
   return true;

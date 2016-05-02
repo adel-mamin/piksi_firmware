@@ -316,6 +316,7 @@ static void tracker_gps_l2cm_init(const tracker_channel_info_t *channel_info,
                 l->carr_fll_aid_gain);
 
   data->short_cycle = true;
+  common_data->sample_count = 0;
 
   /* Initialise C/N0 estimator */
   cn0_est_init(&data->cn0_est, 1e3 / data->int_ms, common_data->cn0,
@@ -389,15 +390,23 @@ static void tracker_gps_l2cm_update(const tracker_channel_info_t *channel_info,
    */
   bool short_cycle = data->short_cycle;
 
-  data->short_cycle = !data->short_cycle;
+  if (prev_sample_count != 0)
+    data->short_cycle = !data->short_cycle;
 
-  log_warn_sid(channel_info->sid, "L2C output: %f,%f",
-               (float)common_data->carrier_freq, (float)common_data->code_phase_rate);
+  log_warn_sid(channel_info->sid, "L2C output: %f,%f, short_cycle: %d",
+               (float)common_data->carrier_freq, (float)common_data->code_phase_rate, short_cycle);
 
   if (short_cycle) {
-    tracker_retune(channel_info->context, common_data->carrier_freq,
+    if (prev_sample_count == 0) {
+      log_warn_sid(channel_info->sid, "L2C first retune");
+      tracker_retune(channel_info->context, common_data->carrier_freq,
                    common_data->code_phase_rate,
-                   L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS);
+                   L2CM_TRACK_LONG_CYCLE_INTERVAL_CHIPS);
+    } else {
+      tracker_retune(channel_info->context, common_data->carrier_freq,
+                     common_data->code_phase_rate,
+                     L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS);
+    }
     return;
   }
 
