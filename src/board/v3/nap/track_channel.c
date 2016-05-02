@@ -202,16 +202,20 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
   NAP->TRK_CONTROL |= (1 << channel); /* Set to start on the timing strobe */
 
   COMPILER_BARRIER();
-
-  NAP->TRK_TIMING_COMPARE = track_count - SAMPLE_FREQ / GPS_CA_CHIPPING_RATE;
+  u32 tmp = track_count - SAMPLE_FREQ / GPS_CA_CHIPPING_RATE;
+  NAP->TRK_TIMING_COMPARE = tmp;
 
   log_warn("ADEL nap_track_init code=%d, ch=%d, prn=%d, cf=%f, cp=%f, ctrl=0x%04X, track_count=%u,G1=%o,cp_rate=%f,length=%d",
            sid.code, (int)channel, sid.sat,
            carrier_freq, code_phase, control,
            track_count,sid_to_init_g1(sid),(float)cp_rate,length);
 
-  chThdSleep(CH_CFG_ST_FREQUENCY * ceil((float)(track_count - now)/SAMPLE_FREQ));
-  log_warn("ADEL slept: %f ms", 1e3 * (NAP->TIMING_COUNT - now) / SAMPLE_FREQ);
+  chThdSleepMilliseconds(15); //CH_CFG_ST_FREQUENCY * ceil((float)(track_count - now)/SAMPLE_FREQ));
+  if (sid.code == 1) {
+    log_warn("ADEL slept: %f ms", CH_CFG_ST_FREQUENCY * ceil((float)(track_count - now)/SAMPLE_FREQ));
+    log_warn("ADEL slept: %f ms", 1e3 * (NAP->TIMING_COUNT - now) / SAMPLE_FREQ);
+    log_warn("ADEL %f ms", 1e3 * (tmp - now) / SAMPLE_FREQ);
+  }
 }
 
 void nap_track_update(u8 channel, double carrier_freq,
@@ -227,6 +231,10 @@ void nap_track_update(u8 channel, double carrier_freq,
   NAP->TRK_CH[channel].LENGTH = calc_length_samples(chips_to_correlate,
                                     nap_ch_state[channel].code_phase,
                                     cp_rate_fp);
+ 
+  /*log_warn("ADEL NAP->TRK_CH[channel].LENGTH: %d, %d, %f, %d", calc_length_samples(chips_to_correlate,
+                                    nap_ch_state[channel].code_phase,
+                                    cp_rate_fp), chips_to_correlate, nap_ch_state[channel].code_phase, cp_rate_fp);*/
 
   volatile u16 cp_int = NAP->TRK_CH[channel].CODE_PHASE_INT;
   if ((cp_int != 0x3fe)) /* Sanity check, we should be just before rollover */
