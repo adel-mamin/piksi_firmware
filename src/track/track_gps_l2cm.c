@@ -45,7 +45,7 @@
 /* Number of chips to integrate over in the short cycle interval [chips]
  * The value must be within [0..(2 * 10230)].
  */
-#define L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS 1000
+#define L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS 500
 
 /* Number of chips to integrate over in the short cycle interval [ms] */
 #define L2CM_TRACK_SHORT_CYCLE_INTERVAL_MS \
@@ -53,7 +53,7 @@
 
 /* Number of chips to integrate over in the long cycle interval [chips] */
 #define L2CM_TRACK_LONG_CYCLE_INTERVAL_CHIPS \
-  (2 * GPS_L2CM_CHIPS_NUM - L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS)
+  (GPS_L2CM_CHIPS_NUM - L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS)
 
 /* Number of chips to integrate over in the long cycle interval [ms] */
 #define L2CM_TRACK_LONG_CYCLE_INTERVAL_MS \
@@ -61,7 +61,7 @@
 
 /* Number of chips to integrate over in the long cycle interval [chips] */
 #define L2CM_TRACK_LONG_STARTUP_CYCLE_INTERVAL_CHIPS \
-  (2 * GPS_L2CM_CHIPS_NUM - 2 * L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS)
+  (GPS_L2CM_CHIPS_NUM - 2 * L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS)
 
 /* Number of chips to integrate over in the startup long cycle interval [ms] */
 #define L2CM_TRACK_LONG_STARTUP_CYCLE_INTERVAL_MS \
