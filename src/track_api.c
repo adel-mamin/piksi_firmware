@@ -156,6 +156,11 @@ void tracker_bit_sync_update(tracker_context_t *context, u32 int_ms,
   tracker_internal_data_t *internal_data;
   tracker_internal_context_resolve(context, &channel_info, &internal_data);
 
+  if (CODE_GPS_L2CM == channel_info->sid.code) {
+    internal_data->bit_sync.bit_phase_ref = ~(BITSYNC_UNSYNCED);
+    return;
+  }
+
   /* Update bit sync */
   s32 bit_integrate;
   if (bit_sync_update(&internal_data->bit_sync, corr_prompt_real, int_ms,
