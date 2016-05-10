@@ -234,6 +234,19 @@ void tracker_ambiguity_unknown(tracker_context_t *context)
       tracking_lock_counter_increment(channel_info->sid);
 }
 
+/** Enable correlation data message for a tracker channel.
+ *
+ * \param context     Tracker context.
+ */
+void tracker_correlations_send_enable(tracker_context_t *context)
+{
+  const tracker_channel_info_t *channel_info;
+  tracker_internal_data_t *internal_data;
+  tracker_internal_context_resolve(context, &channel_info, &internal_data);
+
+  internal_data->output_iq = true;
+}
+
 /** Output a correlation data message for a tracker channel.
  *
  * \param context     Tracker context.
