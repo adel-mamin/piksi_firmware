@@ -622,7 +622,7 @@ static void solution_thread(void *arg)
       for (u8 i = 0; i < n_ready_tdcp; i++) {
         /* This is effectively adding the pseudorange rate (PRR) */
         nav_meas_tdcp[i].raw_pseudorange += t_err * nav_meas_tdcp[i].raw_doppler
-                                              * GPS_L1_LAMBDA;
+                         * code_to_lambda(nav_meas_tdcp[i].sid.code);
         /* This is effecitvely adding the carrier phase range rate */
         nav_meas_tdcp[i].raw_carrier_phase += t_err * nav_meas_tdcp[i].raw_doppler;
 
