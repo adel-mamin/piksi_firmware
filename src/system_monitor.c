@@ -56,6 +56,10 @@ static double base_llh[3];
 /* Global CPU time accumulator, used to measure thread CPU usage. */
 u64 g_ctime = 0;
 
+#define ADEL_WD_ARR_SIZE 4
+static u32 adel_wd_arr[ADEL_WD_ARR_SIZE] = {0};
+static u32 adel_wd_index = 0;
+
 
 u32 check_stack_free(thread_t *tp)
 {
@@ -241,6 +245,14 @@ static void watchdog_thread(void *arg)
                 "Watchdog reset %s.",
                 (unsigned int)threads_dead,
                 use_wdt ? "imminent" : "disabled");
+      for (u8 k = 0; k < ADEL_WD_ARR_SIZE; k++) {
+        log_error("[%u] 0x%02X", k, adel_wd_arr[adel_wd_index] ^ WATCHDOG_NOTIFY_FLAG_ALL);
+        if (adel_wd_index) {
+          adel_wd_index--;
+        } else {
+          adel_wd_index = ADEL_WD_ARR_SIZE - 1;
+        }
+      }
       debug_threads();
     } else {
       if (use_wdt)
@@ -290,6 +302,11 @@ void watchdog_notify(watchdog_notify_t thread_id)
 {
   chSysLock();
   watchdog_notify_flags |= WATCHDOG_NOTIFY_FLAG(thread_id);
+  if (watchdog_notify_flags != adel_wd_arr[adel_wd_index]) {
+    adel_wd_index++;
+    adel_wd_index = adel_wd_index % ADEL_WD_ARR_SIZE;
+    adel_wd_arr[adel_wd_index] = watchdog_notify_flags;
+  }
   chSysUnlock();
 }
 
